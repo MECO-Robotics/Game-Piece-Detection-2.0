@@ -1,0 +1,14 @@
+[Unit]
+Description=FRC 8324 A075 camera bridge (%i)
+After=network.target systemd-modules-load.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/frc8324-a075/scripts/run-camera.sh %i
+Restart=always
+RestartSec=3
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target
