@@ -1,6 +1,6 @@
 # FRC 8324 A075 Game Piece Vision
 
-This project bridges two Sipeed MaixSense A075 RGBD cameras into PhotonVision on an Ubuntu 24.04 Beelink Mini S12. Each camera becomes a stable Video4Linux device (`/dev/video20` and `/dev/video21`) that can be activated and viewed in the PhotonVision UI.
+This project bridges one or two Sipeed MaixSense A075 RGBD cameras into PhotonVision on an Ubuntu 24.04 Beelink Mini S12. The cameras become stable Video4Linux devices (`/dev/video20` and, when present, `/dev/video21`) that can be activated and viewed in the PhotonVision UI.
 
 The bridge also marks likely 2026 FUEL (yellow balls) in magenta so detections are visible in Driver Mode. PhotonVision can independently produce robot targeting data from the same feed with a Colored Shape pipeline.
 
@@ -16,7 +16,7 @@ Requirements:
 
 - Ubuntu 24.04
 - PhotonVision already installed and working
-- Both A075 cameras connected directly or through a powered USB hub
+- One or two A075 cameras connected directly or through a powered USB hub
 - Internet access for the first installation
 
 Clone the repository and run:
@@ -27,20 +27,26 @@ cd Game-Piece-Detection-2.0
 sudo ./scripts/install.sh
 ```
 
-The installer automatically selects exactly two USB network interfaces using the `rndis_host`, `cdc_ether`, or `cdc_ncm` driver. If other USB network adapters are connected, specify the interfaces explicitly:
+The installer automatically selects one or two USB network interfaces using the `rndis_host`, `cdc_ether`, or `cdc_ncm` driver. With one camera, it installs only `FRC8324-A075-Left` on `/dev/video20`. If other USB network adapters are connected, specify the interface explicitly:
+
+```bash
+sudo A075_LEFT_IFACE=enx001122334455 ./scripts/install.sh
+```
+
+For two cameras, set both interfaces:
 
 ```bash
 sudo A075_LEFT_IFACE=enx001122334455 A075_RIGHT_IFACE=enx66778899aabb ./scripts/install.sh
 ```
 
-After installation, power-cycle both cameras or reboot the Beelink. Check the bridge:
+After installation, power-cycle the connected cameras or reboot the Beelink. Check a one-camera bridge with:
 
 ```bash
-sudo systemctl status a075-bridge@left a075-bridge@right
+sudo systemctl status a075-bridge@left
 v4l2-ctl --list-devices
 ```
 
-Restart PhotonVision after both bridge services are running. Open `http://photonvision.local:5800`, activate `FRC8324-A075-Left` and `FRC8324-A075-Right`, and rename them `fuel-left` and `fuel-right`.
+For two cameras, also check `a075-bridge@right`. Restart PhotonVision after the bridge services are running. Open `http://photonvision.local:5800`, activate the available `FRC8324-A075` cameras, and rename them `fuel-left` and `fuel-right` as applicable.
 
 ## PhotonVision yellow-ball pipeline
 
@@ -66,14 +72,16 @@ The magenta boxes and labels are produced by the bridge for driver feedback. Pho
 
 Installed configuration lives in `/etc/frc8324-a075/`:
 
-- `left.conf` and `right.conf`: source interface, namespace, and virtual video device
+- `left.conf` and optional `right.conf`: source interface, namespace, and virtual video device
 - `bridge.conf`: resolution, frame rate, HSV thresholds, and contour filters
 
 Apply configuration changes with:
 
 ```bash
-sudo systemctl restart a075-bridge@left a075-bridge@right
+sudo systemctl restart a075-bridge@left
 ```
+
+Include `a075-bridge@right` when two cameras are installed. Rerun the installer after connecting a second camera to expand an existing one-camera installation.
 
 Follow logs with:
 

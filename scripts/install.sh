@@ -25,22 +25,31 @@ done
 
 left_iface=${A075_LEFT_IFACE:-}
 right_iface=${A075_RIGHT_IFACE:-}
-if [[ -z "$left_iface" || -z "$right_iface" ]]; then
-  if [[ ${#usb_net_interfaces[@]} -ne 2 ]]; then
-    echo "Expected exactly two USB RNDIS/CDC network interfaces; found ${#usb_net_interfaces[@]}." >&2
+if [[ -z "$left_iface" && -z "$right_iface" ]]; then
+  if [[ ${#usb_net_interfaces[@]} -lt 1 || ${#usb_net_interfaces[@]} -gt 2 ]]; then
+    echo "Expected one or two USB RNDIS/CDC network interfaces; found ${#usb_net_interfaces[@]}." >&2
     printf 'Candidates: %s\n' "${usb_net_interfaces[*]:-(none)}" >&2
-    echo "Set A075_LEFT_IFACE and A075_RIGHT_IFACE and rerun." >&2
+    echo "Set A075_LEFT_IFACE, optionally set A075_RIGHT_IFACE, and rerun." >&2
     exit 1
   fi
-  left_iface=${left_iface:-${usb_net_interfaces[0]}}
-  right_iface=${right_iface:-${usb_net_interfaces[1]}}
+  left_iface=${usb_net_interfaces[0]}
+  if [[ ${#usb_net_interfaces[@]} -eq 2 ]]; then
+    right_iface=${usb_net_interfaces[1]}
+  fi
+elif [[ -z "$left_iface" ]]; then
+  echo "A075_RIGHT_IFACE cannot be used without A075_LEFT_IFACE." >&2
+  exit 1
 fi
 
-if [[ "$left_iface" == "$right_iface" ]]; then
+if [[ -n "$right_iface" && "$left_iface" == "$right_iface" ]]; then
   echo "Left and right camera interfaces must be different." >&2
   exit 1
 fi
-for iface in "$left_iface" "$right_iface"; do
+camera_interfaces=("$left_iface")
+if [[ -n "$right_iface" ]]; then
+  camera_interfaces+=("$right_iface")
+fi
+for iface in "${camera_interfaces[@]}"; do
   if [[ ! -e "/sys/class/net/$iface" ]]; then
     echo "Network interface $iface does not exist." >&2
     exit 1
@@ -61,15 +70,26 @@ INTERFACE=$left_iface
 NAMESPACE=a075-left
 VIDEO_DEVICE=/dev/video20
 EOF
-cat > /etc/frc8324-a075/right.conf <<EOF
+if [[ -n "$right_iface" ]]; then
+  cat > /etc/frc8324-a075/right.conf <<EOF
 INTERFACE=$right_iface
 NAMESPACE=a075-right
 VIDEO_DEVICE=/dev/video21
 EOF
+else
+  systemctl disable a075-bridge@right.service 2>/dev/null || true
+  rm -f /etc/frc8324-a075/right.conf
+fi
 
-cat > /etc/modprobe.d/frc8324-a075.conf <<'EOF'
+if [[ -n "$right_iface" ]]; then
+  cat > /etc/modprobe.d/frc8324-a075.conf <<'EOF'
 options v4l2loopback devices=2 video_nr=20,21 card_label="FRC8324-A075-Left,FRC8324-A075-Right" exclusive_caps=1 max_buffers=4
 EOF
+else
+  cat > /etc/modprobe.d/frc8324-a075.conf <<'EOF'
+options v4l2loopback devices=1 video_nr=20 card_label="FRC8324-A075-Left" exclusive_caps=1 max_buffers=4
+EOF
+fi
 echo v4l2loopback > /etc/modules-load.d/frc8324-a075.conf
 
 if lsmod | grep -q '^v4l2loopback '; then
@@ -82,7 +102,13 @@ modprobe v4l2loopback
 
 install -m 0644 "$repo_dir/systemd/a075-bridge@.service" /etc/systemd/system/a075-bridge@.service
 systemctl daemon-reload
-systemctl enable --now a075-bridge@left.service a075-bridge@right.service
+systemctl enable --now a075-bridge@left.service
 
-echo "Installed A075 bridges: left=$left_iface -> /dev/video20, right=$right_iface -> /dev/video21"
-echo "Wait 15 seconds, restart PhotonVision, then activate both FRC8324-A075 cameras in its UI."
+if [[ -n "$right_iface" ]]; then
+  systemctl enable --now a075-bridge@right.service
+  echo "Installed A075 bridges: left=$left_iface -> /dev/video20, right=$right_iface -> /dev/video21"
+  echo "Wait 15 seconds, restart PhotonVision, then activate both FRC8324-A075 cameras in its UI."
+else
+  echo "Installed A075 bridge: left=$left_iface -> /dev/video20"
+  echo "Wait 15 seconds, restart PhotonVision, then activate FRC8324-A075-Left in its UI."
+fi
