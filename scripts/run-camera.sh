@@ -36,4 +36,5 @@ exec ip netns exec "$NAMESPACE" /usr/bin/python3 -m a075_bridge.main \
   --device "$VIDEO_DEVICE" --width "$WIDTH" --height "$HEIGHT" --fps "$FPS" \
   --hue-low "$HUE_LOW" --hue-high "$HUE_HIGH" \
   --saturation-low "$SATURATION_LOW" --value-low "$VALUE_LOW" \
+  --lab-yellow-low "$LAB_YELLOW_LOW" --yellow-dominance-low "$YELLOW_DOMINANCE_LOW" \
   --min-area "$MIN_AREA" --min-circularity "$MIN_CIRCULARITY"
