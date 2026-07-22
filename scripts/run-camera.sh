@@ -22,7 +22,7 @@ if [[ -e "/sys/class/net/$INTERFACE" ]]; then
   ip link set "$INTERFACE" netns "$NAMESPACE"
 fi
 
-if ! ip netns exec "$NAMESPACE" test -e "/sys/class/net/$INTERFACE"; then
+if ! ip netns exec "$NAMESPACE" ip link show dev "$INTERFACE" >/dev/null 2>&1; then
   echo "Interface $INTERFACE is not present in namespace $NAMESPACE" >&2
   exit 1
 fi
