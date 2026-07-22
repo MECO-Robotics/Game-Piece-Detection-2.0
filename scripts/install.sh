@@ -91,6 +91,8 @@ options v4l2loopback devices=1 video_nr=20 card_label="FRC8324-A075-Left" exclus
 EOF
 fi
 echo v4l2loopback > /etc/modules-load.d/frc8324-a075.conf
+install -m 0644 "$repo_dir/udev/99-frc8324-a075.rules" /etc/udev/rules.d/99-frc8324-a075.rules
+udevadm control --reload-rules
 
 if lsmod | grep -q '^v4l2loopback '; then
   modprobe -r v4l2loopback || {
@@ -99,6 +101,8 @@ if lsmod | grep -q '^v4l2loopback '; then
   }
 fi
 modprobe v4l2loopback
+udevadm trigger --action=add --subsystem-match=video4linux
+udevadm settle
 
 install -m 0644 "$repo_dir/systemd/a075-bridge@.service" /etc/systemd/system/a075-bridge@.service
 systemctl daemon-reload

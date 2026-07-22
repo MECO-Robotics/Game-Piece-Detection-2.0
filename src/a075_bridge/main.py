@@ -64,6 +64,8 @@ def run(args: argparse.Namespace) -> None:
         hue_high=args.hue_high,
         saturation_low=args.saturation_low,
         value_low=args.value_low,
+        lab_yellow_low=args.lab_yellow_low,
+        yellow_dominance_low=args.yellow_dominance_low,
         min_area_px=args.min_area,
         min_circularity=args.min_circularity,
     )
@@ -117,12 +119,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--fps", type=int, default=20)
-    parser.add_argument("--hue-low", type=int, default=20)
-    parser.add_argument("--hue-high", type=int, default=40)
-    parser.add_argument("--saturation-low", type=int, default=100)
-    parser.add_argument("--value-low", type=int, default=100)
+    parser.add_argument("--hue-low", type=int, default=4)
+    parser.add_argument("--hue-high", type=int, default=42)
+    parser.add_argument("--saturation-low", type=int, default=45)
+    parser.add_argument("--value-low", type=int, default=55)
+    parser.add_argument("--lab-yellow-low", type=int, default=158)
+    parser.add_argument("--yellow-dominance-low", type=int, default=40)
     parser.add_argument("--min-area", type=float, default=100.0)
-    parser.add_argument("--min-circularity", type=float, default=0.55)
+    parser.add_argument("--min-circularity", type=float, default=0.72)
     return parser.parse_args()
 
 

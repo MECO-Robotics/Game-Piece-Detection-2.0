@@ -6,7 +6,7 @@ The bridge also marks likely 2026 FUEL (yellow balls) in magenta so detections a
 
 ## Why a bridge is required
 
-The A075 is a USB RNDIS network device, not a UVC webcam. It serves RGBD frames over HTTP at `192.168.233.1`. Both cameras use that same fixed address, so this project places each USB interface in a separate Linux network namespace before publishing the RGB image through `v4l2loopback`.
+The A075 is a USB RNDIS network device, not a UVC webcam. It serves RGBD frames over HTTP at `192.168.233.1`. Both cameras use that same fixed address, so this project places each USB interface in a separate Linux network namespace before publishing the RGB image through `v4l2loopback`. The installer also creates stable `/dev/v4l/by-path/frc8324-a075-*` links so PhotonVision enumerates the virtual feeds.
 
 PhotonVision does not officially support virtual cameras. This bridge supplies a conventional, fixed-format V4L2 capture stream and is intended for this specific x86/RNDIS setup, but it must be tested on the final robot hardware before competition.
 
@@ -54,9 +54,9 @@ For each camera, create a **Colored Shape** pipeline named `fuel-yellow` and sta
 
 | Setting | Initial value |
 | --- | --- |
-| Hue | 20–40 |
-| Saturation | 100–255 |
-| Value | 100–255 |
+| Hue | 4–42 |
+| Saturation | 45–255 |
+| Value | 55–255 |
 | Contour shape | Circle |
 | Area | 0.05–35% |
 | Fullness | 55–100% |
@@ -64,7 +64,7 @@ For each camera, create a **Colored Shape** pipeline named `fuel-yellow` and sta
 | Sort mode | Largest |
 | Maximum targets | 8 |
 
-Tune HSV values under actual field lighting. Camera exposure cannot be controlled through PhotonVision because the A075 HTTP API does not expose it as a V4L2 control.
+Tune HSV values under actual field lighting. The bridge additionally checks Lab yellow chroma and yellow dominance (`min(red, green) - blue`) so automatic exposure changes do not cause the ball to disappear against warm walls or skin. These thresholds are configured with `LAB_YELLOW_LOW` and `YELLOW_DOMINANCE_LOW` in `bridge.conf`. Camera exposure cannot be controlled through PhotonVision because the A075 HTTP API does not expose it as a V4L2 control.
 
 The magenta boxes and labels are produced by the bridge for driver feedback. PhotonVision thresholds only the yellow ball pixels, so the overlay does not become a target.
 

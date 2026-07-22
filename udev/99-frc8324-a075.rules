@@ -1,0 +1,2 @@
+SUBSYSTEM=="video4linux", KERNEL=="video20", SYMLINK+="v4l/by-path/frc8324-a075-left"
+SUBSYSTEM=="video4linux", KERNEL=="video21", SYMLINK+="v4l/by-path/frc8324-a075-right"
