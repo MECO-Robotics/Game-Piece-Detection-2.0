@@ -7,9 +7,19 @@ if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
 fi
 
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+control_profile=${A075_CONTROL_PROFILE:-default}
+if [[ ! "$control_profile" =~ ^[A-Za-z0-9_-]+$ ]]; then
+  echo "Invalid A075_CONTROL_PROFILE: $control_profile" >&2
+  exit 1
+fi
+control_profile_path="$repo_dir/config/robots/${control_profile}.conf"
+if [[ ! -f "$control_profile_path" ]]; then
+  echo "Control profile does not exist: $control_profile_path" >&2
+  exit 1
+fi
 
 # Return interfaces from namespaces created by a previous installation.
-systemctl stop a075-bridge@left.service a075-bridge@right.service 2>/dev/null || true
+systemctl stop a075-bridge@left.service a075-bridge@right.service a075-nt-publisher.service 2>/dev/null || true
 ip netns delete a075-left 2>/dev/null || true
 ip netns delete a075-right 2>/dev/null || true
 
@@ -58,12 +68,22 @@ done
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y python3 python3-numpy python3-opencv ffmpeg v4l2loopback-dkms v4l-utils iproute2
+apt-get install -y python3 python3-pip python3-venv python3-numpy python3-opencv ffmpeg v4l2loopback-dkms v4l-utils iproute2
 
 install -d /opt/frc8324-a075 /etc/frc8324-a075
 cp -a "$repo_dir/src" "$repo_dir/scripts" /opt/frc8324-a075/
 chmod 0755 /opt/frc8324-a075/scripts/*.sh
-cp "$repo_dir/config/bridge.conf" /etc/frc8324-a075/bridge.conf
+if [[ ! -f /etc/frc8324-a075/bridge.conf ]]; then
+  cp "$repo_dir/config/bridge.conf" /etc/frc8324-a075/bridge.conf
+else
+  grep -q '^NT_TEAM=' /etc/frc8324-a075/bridge.conf || echo 'NT_TEAM=8324' >> /etc/frc8324-a075/bridge.conf
+  grep -q '^NT_SERVER=' /etc/frc8324-a075/bridge.conf || echo 'NT_SERVER=' >> /etc/frc8324-a075/bridge.conf
+fi
+if [[ -n "${A075_CONTROL_PROFILE:-}" || ! -f /etc/frc8324-a075/control.conf ]]; then
+  cp "$control_profile_path" /etc/frc8324-a075/control.conf
+fi
+python3 -m venv --system-site-packages /opt/frc8324-a075/venv
+/opt/frc8324-a075/venv/bin/python -m pip install --upgrade "pyntcore==2026.2.2"
 
 cat > /etc/frc8324-a075/left.conf <<EOF
 INTERFACE=$left_iface
@@ -105,7 +125,10 @@ udevadm trigger --action=add --subsystem-match=video4linux
 udevadm settle
 
 install -m 0644 "$repo_dir/systemd/a075-bridge@.service" /etc/systemd/system/a075-bridge@.service
+install -m 0644 "$repo_dir/systemd/a075-nt-publisher.service" /etc/systemd/system/a075-nt-publisher.service
 systemctl daemon-reload
+systemctl enable a075-nt-publisher.service
+systemctl restart a075-nt-publisher.service
 systemctl enable --now a075-bridge@left.service
 
 if [[ -n "$right_iface" ]]; then

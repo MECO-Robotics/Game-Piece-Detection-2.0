@@ -4,6 +4,11 @@ This project bridges one or two Sipeed MaixSense A075 RGBD cameras into PhotonVi
 
 The bridge also marks likely 2026 FUEL (yellow balls) in magenta so detections are visible in Driver Mode. It separates touching balls with color-mask geometry and the A075's 320x240 depth map. PhotonVision can independently produce robot targeting data from the same feed with a Colored Shape pipeline.
 
+The same detections feed a robot-independent pursuit planner. NetworkTables 4 publishes both observations and
+normalized forward/strafe/turn requests. The Beelink cannot directly control motors: the robot-side client must
+explicitly opt in and retains full Driver Station, kill-control, and manual-drive authority. See
+[Robot integration over NetworkTables](docs/NETWORKTABLES.md).
+
 ## Why a bridge is required
 
 The A075 is a USB RNDIS network device, not a UVC webcam. It serves RGBD frames over HTTP at `192.168.233.1`. Both cameras use that same fixed address, so this project places each USB interface in a separate Linux network namespace before publishing the RGB image through `v4l2loopback`. The installer also creates stable `/dev/v4l/by-path/frc8324-a075-*` links so PhotonVision enumerates the virtual feeds.
@@ -43,6 +48,7 @@ After installation, power-cycle the connected cameras or reboot the Beelink. Che
 
 ```bash
 sudo systemctl status a075-bridge@left
+sudo systemctl status a075-nt-publisher
 v4l2-ctl --list-devices
 ```
 
@@ -87,11 +93,31 @@ Installed configuration lives in `/etc/frc8324-a075/`:
 
 - `left.conf` and optional `right.conf`: source interface, namespace, and virtual video device
 - `bridge.conf`: resolution, frame rate, HSV thresholds, and contour filters
+- `control.conf`: robot-independent pursuit gains, limits, stopping area, and direction signs
+
+`bridge.conf` also contains `NT_TEAM` (default `8324`) and optional `NT_SERVER`. The NetworkTables publisher exposes
+normalized target observations under `/GamePieceVision/v1/left` and `/GamePieceVision/v1/right`. It clears a camera's
+targets after 0.25 seconds without fresh data. Full topic definitions and robot-side safety requirements are in
+[docs/NETWORKTABLES.md](docs/NETWORKTABLES.md).
+
+Reusable WPILib Java client and command code lives under [robot-integration](robot-integration/README.md). Each robot
+only supplies the hardware adapter that converts normalized intent into its own drivetrain units.
+
+To keep different Beelink tuning for different robots, copy `config/robots/default.conf` to a named profile and install
+it with:
+
+```bash
+sudo A075_CONTROL_PROFILE=<robot-name> ./scripts/install.sh
+```
+
+See [config/robots/README.md](config/robots/README.md). Running the installer without a profile preserves the currently
+installed control configuration.
 
 Apply configuration changes with:
 
 ```bash
 sudo systemctl restart a075-bridge@left
+sudo systemctl restart a075-nt-publisher
 ```
 
 Include `a075-bridge@right` when two cameras are installed. Rerun the installer after connecting a second camera to expand an existing one-camera installation.

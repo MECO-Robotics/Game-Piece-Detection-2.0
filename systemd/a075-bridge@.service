@@ -1,7 +1,7 @@
 [Unit]
 Description=FRC 8324 A075 camera bridge (%i)
-After=network.target systemd-modules-load.service
-Wants=network.target
+After=network.target systemd-modules-load.service a075-nt-publisher.service
+Wants=network.target a075-nt-publisher.service
 
 [Service]
 Type=simple

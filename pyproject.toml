@@ -7,6 +7,9 @@ name = "frc8324-a075-bridge"
 version = "0.1.0"
 description = "Bridge Sipeed A075 RGBD cameras into PhotonVision"
 requires-python = ">=3.10"
+dependencies = [
+    "pyntcore==2026.2.2",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

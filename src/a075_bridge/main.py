@@ -13,8 +13,9 @@ import cv2
 import numpy as np
 
 from .detection import DetectorSettings, annotate, find_fuel
+from .detection_transport import DetectionSender
 from .protocol import FrameDecodeError, decode_frame, encode_config
-
+from .targeting import build_detection_frame, unavailable_frame
 
 LOG = logging.getLogger("a075-bridge")
 
@@ -74,11 +75,13 @@ def run(args: argparse.Namespace) -> None:
     )
     output = ffmpeg_process(args.device, args.width, args.height, args.fps)
     assert output.stdin is not None
+    detection_sender = DetectionSender(args.detections_socket)
 
     configured = False
     consecutive_failures = 0
     last_log = time.monotonic()
     frames = 0
+    sequence = 0
     while output.poll() is None:
         try:
             if not configured:
@@ -98,6 +101,17 @@ def run(args: argparse.Namespace) -> None:
                 decoded.depth_height, decoded.depth_width
             )
             boxes = find_fuel(image, settings, depth)
+            sequence += 1
+            detection_sender.send(
+                build_detection_frame(
+                    args.camera_name,
+                    sequence,
+                    boxes,
+                    args.width,
+                    args.height,
+                    depth,
+                )
+            )
             output.stdin.write(annotate(image, boxes).tobytes())
             frames += 1
             consecutive_failures = 0
@@ -110,6 +124,7 @@ def run(args: argparse.Namespace) -> None:
         except (OSError, urllib.error.URLError, TimeoutError, FrameDecodeError) as exc:
             configured = False
             consecutive_failures += 1
+            detection_sender.send(unavailable_frame(args.camera_name, sequence))
             LOG.warning("camera unavailable: %s; retrying", exc)
             if consecutive_failures >= 10:
                 raise RuntimeError("camera remained unavailable; restarting interface setup") from exc
@@ -117,6 +132,7 @@ def run(args: argparse.Namespace) -> None:
         except BrokenPipeError:
             break
 
+    detection_sender.close()
     raise RuntimeError(f"ffmpeg exited with status {output.returncode}")
 
 
@@ -139,6 +155,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split-peak-ratio", type=float, default=0.45)
     parser.add_argument("--depth-split-threshold", type=int, default=12)
     parser.add_argument("--depth-min-valid-fraction", type=float, default=0.25)
+    parser.add_argument("--camera-name", default="left")
+    parser.add_argument("--detections-socket")
     return parser.parse_args()
 
 

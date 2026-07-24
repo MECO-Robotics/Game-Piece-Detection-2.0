@@ -32,8 +32,10 @@ ip netns exec "$NAMESPACE" ip address add 192.168.233.2/24 dev "$INTERFACE"
 ip netns exec "$NAMESPACE" ip link set lo up
 ip netns exec "$NAMESPACE" ip link set "$INTERFACE" up
 
-exec ip netns exec "$NAMESPACE" /usr/bin/python3 -m a075_bridge.main \
+exec ip netns exec "$NAMESPACE" /opt/frc8324-a075/venv/bin/python -m a075_bridge.main \
   --device "$VIDEO_DEVICE" --width "$WIDTH" --height "$HEIGHT" --fps "$FPS" \
+  --camera-name "$camera_name" \
+  --detections-socket "/run/frc8324-a075/${camera_name}.sock" \
   --hue-low "$HUE_LOW" --hue-high "$HUE_HIGH" \
   --saturation-low "$SATURATION_LOW" --value-low "$VALUE_LOW" \
   --lab-yellow-low "$LAB_YELLOW_LOW" --yellow-dominance-low "$YELLOW_DOMINANCE_LOW" \
