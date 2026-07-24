@@ -17,8 +17,8 @@ class DetectorSettings:
     lab_yellow_low: int = 158
     yellow_dominance_low: int = 40
     min_area_px: float = 100.0
-    min_circularity: float = 0.72
-    split_peak_ratio: float = 0.85
+    min_circularity: float = 0.88
+    split_peak_ratio: float = 0.45
     depth_split_threshold: int = 12
     depth_min_valid_fraction: float = 0.25
 
@@ -65,15 +65,33 @@ def _geometry_cores(
     maximum = float(distance.max())
     if maximum < 2.0:
         return []
-    peaks = np.where(distance >= maximum * settings.split_peak_ratio, 255, 0).astype(
-        np.uint8
+
+    # A single global distance threshold can join the centers of touching balls.
+    # Non-maximum suppression preserves one peak per visible round center.
+    suppression_radius = max(3, int(maximum * 0.6))
+    kernel_size = suppression_radius * 2 + 1
+    local_maximum = cv2.dilate(
+        distance, np.ones((kernel_size, kernel_size), dtype=np.uint8)
     )
-    peaks = cv2.morphologyEx(
-        peaks,
-        cv2.MORPH_OPEN,
-        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
-    )
-    return _component_cores(peaks, max(3, int(settings.min_area_px * 0.03)))
+    peaks = np.where(
+        (distance >= local_maximum - 0.01)
+        & (distance >= maximum * settings.split_peak_ratio),
+        255,
+        0,
+    ).astype(np.uint8)
+
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(peaks, connectivity=8)
+    cores: list[np.ndarray] = []
+    for label in range(1, count):
+        if stats[label, cv2.CC_STAT_AREA] < 1:
+            continue
+        y_values, x_values = np.where(labels == label)
+        peak_index = int(np.argmax(distance[y_values, x_values]))
+        center = (int(x_values[peak_index]), int(y_values[peak_index]))
+        core = np.zeros(component.shape, dtype=np.uint8)
+        cv2.circle(core, center, 2, 255, -1)
+        cores.append(core)
+    return cores
 
 
 def _depth_cores(
@@ -143,9 +161,14 @@ def _split_component(
         if depth is not None and settings.depth_split_threshold > 0
         else []
     )
-    # Prefer the evidence that identifies more distinct objects. Geometry handles
-    # balls at the same range; depth discontinuities help when balls overlap.
-    cores = depth_cores if len(depth_cores) > len(geometry_cores) else geometry_cores
+    # Prefer depth only when it adds a plausible number of divisions. Eight-bit
+    # depth can be noisy on reflective skin or warm textured backgrounds.
+    plausible_depth_count = len(depth_cores) <= max(4, len(geometry_cores) * 2)
+    cores = (
+        depth_cores
+        if len(depth_cores) > len(geometry_cores) and plausible_depth_count
+        else geometry_cores
+    )
     return _partition_from_cores(component, cores)
 
 

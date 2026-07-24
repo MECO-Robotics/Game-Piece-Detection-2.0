@@ -72,7 +72,8 @@ Multi-ball and depth settings in `bridge.conf`:
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `SPLIT_PEAK_RATIO` | `0.85` | Higher values isolate touching centers more aggressively; values that are too high can split one ball. |
+| `MIN_CIRCULARITY` | `0.88` | Rejects warm-colored background fragments that do not retain a round ball outline. |
+| `SPLIT_PEAK_RATIO` | `0.45` | Minimum local center height relative to the largest center in a merged region. Lower values include smaller/farther balls but may admit noise. |
 | `DEPTH_SPLIT_THRESHOLD` | `12` | Minimum 8-bit depth jump used as a boundary between touching objects; set to `0` to disable depth splitting. |
 | `DEPTH_MIN_VALID_FRACTION` | `0.25` | Minimum usable-depth fraction required before depth affects a yellow region. |
 
