@@ -78,6 +78,13 @@ class DetectionTests(unittest.TestCase):
         self.assertLess(centers[0], 320)
         self.assertGreater(centers[1], 320)
 
+    def test_splits_uneven_overlapping_balls_without_depth(self):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.circle(frame, (290, 240), 40, (75, 180, 240), -1)
+        cv2.circle(frame, (346, 225), 34, (75, 180, 240), -1)
+
+        self.assertEqual(2, len(find_fuel(frame, DetectorSettings())))
+
     def test_splits_three_touching_balls(self):
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         for center in ((265, 255), (375, 255), (320, 160)):
