@@ -37,4 +37,7 @@ exec ip netns exec "$NAMESPACE" /usr/bin/python3 -m a075_bridge.main \
   --hue-low "$HUE_LOW" --hue-high "$HUE_HIGH" \
   --saturation-low "$SATURATION_LOW" --value-low "$VALUE_LOW" \
   --lab-yellow-low "$LAB_YELLOW_LOW" --yellow-dominance-low "$YELLOW_DOMINANCE_LOW" \
-  --min-area "$MIN_AREA" --min-circularity "$MIN_CIRCULARITY"
+  --min-area "$MIN_AREA" --min-circularity "$MIN_CIRCULARITY" \
+  --split-peak-ratio "$SPLIT_PEAK_RATIO" \
+  --depth-split-threshold "$DEPTH_SPLIT_THRESHOLD" \
+  --depth-min-valid-fraction "$DEPTH_MIN_VALID_FRACTION"

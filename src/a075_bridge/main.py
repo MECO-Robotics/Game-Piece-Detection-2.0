@@ -68,6 +68,9 @@ def run(args: argparse.Namespace) -> None:
         yellow_dominance_low=args.yellow_dominance_low,
         min_area_px=args.min_area,
         min_circularity=args.min_circularity,
+        split_peak_ratio=args.split_peak_ratio,
+        depth_split_threshold=args.depth_split_threshold,
+        depth_min_valid_fraction=args.depth_min_valid_fraction,
     )
     output = ffmpeg_process(args.device, args.width, args.height, args.fps)
     assert output.stdin is not None
@@ -88,7 +91,13 @@ def run(args: argparse.Namespace) -> None:
             if image is None:
                 raise FrameDecodeError("OpenCV could not decode the camera JPEG")
             image = cv2.resize(image, (args.width, args.height), interpolation=cv2.INTER_AREA)
-            boxes = find_fuel(image, settings)
+            depth_dtype = (
+                np.dtype("<u2") if decoded.depth_bytes_per_pixel == 2 else np.uint8
+            )
+            depth = np.frombuffer(decoded.depth, dtype=depth_dtype).reshape(
+                decoded.depth_height, decoded.depth_width
+            )
+            boxes = find_fuel(image, settings, depth)
             output.stdin.write(annotate(image, boxes).tobytes())
             frames += 1
             consecutive_failures = 0
@@ -127,6 +136,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--yellow-dominance-low", type=int, default=40)
     parser.add_argument("--min-area", type=float, default=100.0)
     parser.add_argument("--min-circularity", type=float, default=0.72)
+    parser.add_argument("--split-peak-ratio", type=float, default=0.85)
+    parser.add_argument("--depth-split-threshold", type=int, default=12)
+    parser.add_argument("--depth-min-valid-fraction", type=float, default=0.25)
     return parser.parse_args()
 
 

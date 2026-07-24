@@ -2,7 +2,7 @@
 
 This project bridges one or two Sipeed MaixSense A075 RGBD cameras into PhotonVision on an Ubuntu 24.04 Beelink Mini S12. The cameras become stable Video4Linux devices (`/dev/video20` and, when present, `/dev/video21`) that can be activated and viewed in the PhotonVision UI.
 
-The bridge also marks likely 2026 FUEL (yellow balls) in magenta so detections are visible in Driver Mode. PhotonVision can independently produce robot targeting data from the same feed with a Colored Shape pipeline.
+The bridge also marks likely 2026 FUEL (yellow balls) in magenta so detections are visible in Driver Mode. It separates touching balls with color-mask geometry and the A075's 320x240 depth map. PhotonVision can independently produce robot targeting data from the same feed with a Colored Shape pipeline.
 
 ## Why a bridge is required
 
@@ -65,6 +65,18 @@ For each camera, create a **Colored Shape** pipeline named `fuel-yellow` and sta
 | Maximum targets | 8 |
 
 Tune HSV values under actual field lighting. The bridge additionally checks Lab yellow chroma and yellow dominance (`min(red, green) - blue`) so automatic exposure changes do not cause the ball to disappear against warm walls or skin. These thresholds are configured with `LAB_YELLOW_LOW` and `YELLOW_DOMINANCE_LOW` in `bridge.conf`. Camera exposure cannot be controlled through PhotonVision because the A075 HTTP API does not expose it as a V4L2 control.
+
+When yellow regions touch, the bridge uses distance-transform peaks to find separate round centers. It also looks for sharp depth changes inside the merged region, which helps split partially overlapping balls at different ranges. Depth is supplementary: an unavailable or low-confidence depth region does not suppress an otherwise valid color/shape detection.
+
+Multi-ball and depth settings in `bridge.conf`:
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `SPLIT_PEAK_RATIO` | `0.85` | Higher values isolate touching centers more aggressively; values that are too high can split one ball. |
+| `DEPTH_SPLIT_THRESHOLD` | `12` | Minimum 8-bit depth jump used as a boundary between touching objects; set to `0` to disable depth splitting. |
+| `DEPTH_MIN_VALID_FRACTION` | `0.25` | Minimum usable-depth fraction required before depth affects a yellow region. |
+
+The depth image is resized to the RGB frame for segmentation. This is sufficient for coarse separation, but it is not a calibrated 3D projection and should not be treated as a precise physical distance measurement.
 
 The magenta boxes and labels are produced by the bridge for driver feedback. PhotonVision thresholds only the yellow ball pixels, so the overlay does not become a target.
 

@@ -20,6 +20,10 @@ class A075Frame:
     frame_id: int
     timestamp_ms: int
     jpeg: bytes
+    depth: bytes
+    depth_width: int
+    depth_height: int
+    depth_bytes_per_pixel: int
 
 
 def encode_config() -> bytes:
@@ -28,7 +32,7 @@ def encode_config() -> bytes:
 
 
 def decode_frame(data: bytes) -> A075Frame:
-    """Extract the JPEG image from one `/getdeep` response."""
+    """Extract the 320x240 depth map and JPEG image from `/getdeep`."""
     minimum = HEADER_SIZE + CONFIG_SIZE + 8
     if len(data) < minimum:
         raise FrameDecodeError(f"frame has {len(data)} bytes; need at least {minimum}")
@@ -43,7 +47,18 @@ def decode_frame(data: bytes) -> A075Frame:
     if depth_size < 0 or rgb_size <= 0:
         raise FrameDecodeError("camera returned invalid payload sizes")
 
-    rgb_start = sizes_offset + 8 + depth_size
+    depth_bytes_per_pixel = 2 if config[1] == 0 else 1
+    depth_width = 320
+    depth_height = 240
+    depth_image_size = depth_width * depth_height * depth_bytes_per_pixel
+    if depth_size < depth_image_size:
+        raise FrameDecodeError(
+            f"depth payload has {depth_size} bytes; need at least {depth_image_size}"
+        )
+
+    payload_start = sizes_offset + 8
+    depth = data[payload_start : payload_start + depth_image_size]
+    rgb_start = payload_start + depth_size
     rgb_end = rgb_start + rgb_size
     if rgb_end > len(data):
         raise FrameDecodeError(
@@ -53,4 +68,12 @@ def decode_frame(data: bytes) -> A075Frame:
     jpeg = data[rgb_start:rgb_end]
     if not jpeg.startswith(b"\xff\xd8") or not jpeg.endswith(b"\xff\xd9"):
         raise FrameDecodeError("RGB payload is not a complete JPEG image")
-    return A075Frame(frame_id=frame_id, timestamp_ms=timestamp_ms, jpeg=jpeg)
+    return A075Frame(
+        frame_id=frame_id,
+        timestamp_ms=timestamp_ms,
+        jpeg=jpeg,
+        depth=depth,
+        depth_width=depth_width,
+        depth_height=depth_height,
+        depth_bytes_per_pixel=depth_bytes_per_pixel,
+    )
