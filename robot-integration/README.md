@@ -85,3 +85,21 @@ For each robot:
 
 The pursuit planner does not need to change between swerve and tank robots. Only the small hardware adapter and the
 per-robot configuration do.
+
+## Drive-type adapter pattern (tank + swerve)
+
+For teams with multiple robot types, keep the NetworkTables contract identical and move drivetrain-specific mapping into a
+small adapter layer in each robot project.
+
+1. Add a mode enum (for example `TANK` and `SWERVE`) in robot constants.
+2. Add a `VisionDriveAdapter` interface with:
+   1. `apply(DriveRequest request)`
+   2. `stop()`
+3. Add tank and swerve implementations:
+   1. Tank: `arcadeDrive(request.forward() * MAX_FORWARD_OUTPUT, request.turn() * MAX_TURN_OUTPUT)`.
+   2. Swerve: `driveRobotRelative(request.forward() * MAX_LINEAR_METERS_PER_SECOND, request.strafe() * MAX_LINEAR_METERS_PER_SECOND, request.turn() * MAX_ANGULAR_RADIANS_PER_SECOND)`.
+4. Add a `VisionDriveFactory` that returns the correct adapter from the mode constant.
+5. In robot code, create the adapter once in `robotInit()` and call `adapter.apply(request)` in pursuit mode.
+
+When switching from tank (16th_Note) to a swerve robot (Remy), the NT topic wiring and safety checks remain unchanged;
+only the adapter implementation behind the factory changes.
